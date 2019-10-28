@@ -81,11 +81,51 @@ module API
         )
 
         expose(
+          :position,
+          documentation: {
+            desc: 'Position used for defining markets order',
+            example: -> { ::Market.enabled.first.position }
+          }
+        )
+
+        expose(
           :state,
           documentation: {
             type: String,
             desc: "Market state defines if user can see/trade on current market."
           }
+        )
+
+        expose(
+          :ticker,
+          using: API::V2::Entities::Ticker::TickerEntry,
+          if: ->(_market, options) do
+            options[:extended]
+          end
+        )
+
+        expose(
+          :base,
+          using: API::V2::Entities::Currency,
+          documentation: {
+            type: String,
+            desc: "Market Base Currency."
+          },
+          if: ->(_market, options) do
+            options[:extended]
+          end
+        )
+
+        expose(
+          :quote,
+          using: API::V2::Entities::Currency,
+          documentation: {
+            type: String,
+            desc: "Market Quote Currency."
+          },
+          if: ->(_market, options) do
+            options[:extended]
+          end
         )
       end
     end

@@ -61,6 +61,78 @@ describe API::V2::Account::Balances, type: :request do
       end
 
     end
+
+    context 'filters' do
+      context 'currency_code' do
+        it 'filters by currency_code 1' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_code: 't'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.pluck('currency')).to contain_exactly('btc', 'eth', 'trst')
+        end
+
+        it 'filters by currency_code 2' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_code: 'TrSt'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.pluck('currency')).to contain_exactly('trst')
+        end
+
+        it 'filters by currency_code 3' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_code: 'abc'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.blank?).to be_truthy
+        end
+      end
+
+      context 'currency_name' do
+        it 'filters by currency_name 1' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_name: 'Et'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.pluck('currency')).to contain_exactly('eth', 'trst')
+        end
+
+        it 'filters by currency_name 2' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_name: 'dollar'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.pluck('currency')).to contain_exactly('usd')
+        end
+
+        it 'filters by currency_name 3' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_name: 'abc'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.blank?).to be_truthy
+        end
+      end
+
+      context 'currency_code & currency_name' do
+        it 'filters by code or name 1' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_name: 'abc', currency_code: 'TrSt'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.pluck('currency')).to contain_exactly('trst')
+        end
+
+        it 'filters by code or name 2' do
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_name: 'Trust', currency_code: 'abc'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.pluck('currency')).to contain_exactly('trst')
+        end
+
+        it 'filters by code or name 3' do
+          Currency.find(:eur).update!(visible: true)
+          api_get '/api/v2/account/balances', token: token, params: { search: {currency_name: 'Eu', currency_code: 'ri'}}
+          expect(response).to be_successful
+          result = JSON.parse(response.body)
+          expect(result.pluck('currency')).to contain_exactly('ring', 'eur', 'eth')
+        end
+      end
+    end
   end
 
   describe 'GET api/v2/account/balances/:currency' do

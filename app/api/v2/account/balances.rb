@@ -17,9 +17,22 @@ module API
             success: API::V2::Entities::Account
         params do
           use :pagination
+          optional :search, type: JSON, default: {} do
+            optional :currency_code,
+                     type: String
+            optional :currency_name,
+                     type: String
+          end
         end
         get '/balances' do
-          present paginate(current_user.accounts.visible.ordered),
+          search_params = params[:search]
+                            .slice(:currency_code, :currency_name)
+                            .transform_keys {|k| "#{k}_cont"}
+                            .merge(m: 'or')
+
+          search = current_user.accounts.visible.ransack(search_params)
+
+          present paginate(search.result),
                   with: Entities::Account
         end
 

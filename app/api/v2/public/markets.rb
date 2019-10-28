@@ -16,9 +16,52 @@ module API
             success: API::V2::Entities::Market
           params do
             use :pagination
+            optional :ordering,
+                     values: { value: %w(asc desc), message: 'public.markets.invalid_ordering' },
+                     default: 'asc',
+                     desc: 'If set, returned values will be sorted in specific order, defaults to \'asc\'.'
+            optional :order_by,
+                     values: { value: %w(id position quote_position base_position), message: 'public.markets.invalid_order_by' },
+                     default: 'position',
+                     desc: 'Name of the field, which result will be ordered by.'
+            optional :base_unit,
+                     type: String,
+                     values: { value: -> (v){ ::Currency.exists?(v) },
+                               message: 'public.markets.base_unit_doesnt_exist' }
+            optional :quote_unit,
+                     type: String,
+                     values: { value: -> (v){ ::Currency.exists?(v) },
+                               message: 'public.markets.quote_unit_doesnt_exist' }
+            optional :search, type: JSON, default: {} do
+              optional :base_code,
+                       type: String
+              optional :quote_code,
+                       type: String
+              optional :base_name,
+                       type: String
+              optional :quote_name,
+                       type: String
+            end
+            optional :extended,
+                     type: { value: Boolean, message: 'public.markets.non_boolean_extended' },
+                     default: false
           end
           get "/" do
-            present paginate(::Market.enabled.ordered), with: API::V2::Entities::Market
+            search_params = params[:search]
+                              .slice(:base_code, :quote_code, :base_name, :quote_name)
+                              .transform_keys {|k| "#{k}_cont"}
+                              .merge(m: 'or')
+
+            search = ::Market.enabled
+                             .where(params.slice(:base_unit, :quote_unit))
+                             .ransack(search_params)
+
+            # Add default ordering (position asc) for cases markets where unit position is same.
+            search.sorts = ["#{params[:order_by]} #{params[:ordering]}", "position asc"]
+
+            present paginate(search.result),
+                    with: API::V2::Entities::Market,
+                    extended: !!params[:extended]
           end
 
           desc 'Get the order book of specified market.',
