@@ -31,6 +31,10 @@ class Account < ApplicationRecord
     }
   end
 
+  def active?
+    Operations::Liability.where(member: member, currency: currency).present?
+  end
+
   # Returns active deposit address for account or creates new if any exists.
   def payment_address
     return unless currency.coin?

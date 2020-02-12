@@ -1,5 +1,5 @@
-# encoding: UTF-8
 # frozen_string_literal: true
+
 require 'csv'
 
 namespace :import do
@@ -14,12 +14,12 @@ namespace :import do
   desc 'Load members from csv file.'
   task :users, [:config_load_path] => [:environment] do |_, args|
     csv_table = File.read(Rails.root.join(args[:config_load_path]))
-    import_user_log = File.open("./log/import_users.log", "w")
+    import_user_log = File.open('./log/import_users.log', 'w')
     count = 0
     CSV.parse(csv_table, headers: true, quote_empty: false).each do |row|
       row = row.to_h.compact.symbolize_keys!
       defaults = { level: 0, role: 'member', state: 'active' }
-      permitted_attr = [:uid, :email, :level, :role, :state]
+      permitted_attr = %i[uid email level role state]
       Member.create!(row.slice(*permitted_attr).reverse_merge(defaults))
       count += 1
     rescue StandardError => e
@@ -40,9 +40,10 @@ namespace :import do
   # For import account balances: -> bundle exec rake import:accounts['file_name.csv']
 
   desc 'Load accounts balances from csv file.'
-  task :accounts, [:config_load_path] => [:environment] do |_, args|
+  task :accounts, %i[config_load_path balance_check] => [:environment] do |_, args|
+    args.with_defaults(:config_load_path => 'exported_accounts.csv', :balance_check => false)
     csv_table = File.read(Rails.root.join(args[:config_load_path]))
-    import_accounts_log = File.open("./log/import_accounts.log", "w")
+    import_accounts_log = File.open('./log/import_accounts.log', 'w')
     count = 0
     CSV.parse(csv_table, headers: true).each do |row|
       row = row.to_h.compact.symbolize_keys!
@@ -52,7 +53,7 @@ namespace :import do
       account = Account.find_or_create_by!(member: member, currency: currency)
       main_balance = row[:main_balance].to_d
       locked_balance = row[:locked_balance].to_d
-      next if main_balance <= 0 && locked_balance <= 0
+      next if args[:balance_check] == 'true' && main_balance <= 0 && locked_balance <= 0
 
       ActiveRecord::Base.transaction do
         Operations::Asset.credit!(currency: currency, amount: main_balance + locked_balance)
@@ -66,6 +67,6 @@ namespace :import do
       import_accounts_log.write(message.to_yaml + "\n")
     end
     import_accounts_log.close
-    Kernel.puts "Accounts updated #{count}"
+    Kernel.puts "Accounts created #{count}"
   end
 end
